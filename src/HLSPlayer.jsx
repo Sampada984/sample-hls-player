@@ -9,7 +9,7 @@ const HlsPlayer = () => {
 
     // Load the local HLS script
     const script = document.createElement("script");
-    script.src = "/hls.min.js"; // served from public/
+    script.src = `${process.env.PUBLIC_URL}/hls.min.js`;// served from public/
     script.onload = () => {
       if (window.Hls && window.Hls.isSupported()) {
         const hls = new window.Hls();
