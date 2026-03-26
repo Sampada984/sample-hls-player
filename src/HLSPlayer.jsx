@@ -2,35 +2,66 @@ import React, { useEffect, useRef, useState } from "react";
 
 const HlsPlayer = () => {
   const videoRef = useRef(null);
+  const hlsRef = useRef(null); // keep reference to destroy later
   const [url, setUrl] = useState("");
 
   useEffect(() => {
-    if (!url) return;
+    const video = videoRef.current;
+    if (!video || !url) return;
+    console.log(video.canPlayType('application/vnd.apple.mpegurl')
+    ? "Native HLS"
+    : "hls.js");
+    if (hlsRef.current) {
+      hlsRef.current.destroy();
+      hlsRef.current = null;
+    }
+    console.log("START");
 
-    // Load the local HLS script
-    const script = document.createElement("script");
-    script.src = `${process.env.PUBLIC_URL}/hls.min.js`;// served from public/
-    script.onload = () => {
-      if (window.Hls && window.Hls.isSupported()) {
-        const hls = new window.Hls();
+    // ✅ iOS / Safari native HLS support
+    if (video.canPlayType("application/vnd.apple.mpegurl")) {
+      console.log("NATIVE HLS");
+      
+      video.src = url;
+      video.load();
+      return;
+    }
+
+    // ✅ Fallback to hls.js for other browsers
+    import("hls.js").then((HlsModule) => {
+      console.log("HLS");
+      
+      const Hls = HlsModule.default;
+
+      if (Hls.isSupported()) {
+        const hls = new Hls({
+          liveSyncDuration:1,
+        liveMaxLatencyDuration:3,
+        autoStartLoad:false,
+        manifestLoadingMaxRetry:1,
+        manifestLoadingTimeOut:8000,
+        manifestLoadingRetryDelay: 1000
+        });
+
         hls.loadSource(url);
-        hls.attachMedia(videoRef.current);
-      } else if (videoRef.current.canPlayType("application/vnd.apple.mpegurl")) {
-        // Safari fallback
-        videoRef.current.src = url;
-      }
-    };
+        hls.attachMedia(video);
 
-    document.body.appendChild(script);
+        hlsRef.current = hls;
+      } else {
+        console.warn("HLS not supported in this browser");
+      }
+    });
 
     return () => {
-      document.body.removeChild(script);
+      if (hlsRef.current) {
+        hlsRef.current.destroy();
+        hlsRef.current = null;
+      }
     };
   }, [url]);
 
   return (
     <div style={{ padding: 20, fontFamily: "Arial" }}>
-      <h2>HLS Video Player</h2>
+      <h2>DU Sample HLS Player</h2>
 
       <input
         type="text"
@@ -48,8 +79,9 @@ const HlsPlayer = () => {
       <video
         ref={videoRef}
         controls
+        playsInline // ✅ important for iOS
         style={{ width: "100%", background: "#000", height: "360px" }}
-      ></video>
+      />
     </div>
   );
 };
